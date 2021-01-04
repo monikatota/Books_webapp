@@ -74,8 +74,6 @@ sess.init_app(app)
 def add():
     author = request.form['author']
     title = request.form['title']
-
-
     # Dodanie użytkownika do bazy danych
     con = sqlite3.connect(DATABASE)
     cur = con.cursor()
