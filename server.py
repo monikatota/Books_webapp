@@ -5,9 +5,6 @@ import sqlite3
 # create app
 app = Flask("Flask - Lab")
 
-# Set the secret key to some random bytes. Keep this really secret!
-app.secret_key = 'super secret key'
-
 # Tworzenie obsługi sesji
 sess = Session()
 
@@ -20,11 +17,13 @@ def create_db():
     conn = sqlite3.connect(DATABASE)
     # Stworzenie tabeli w bazie danych za pomocą sqlite3
     conn.execute('CREATE TABLE books (author TEXT, title TEXT)')
+    conn.execute('CREATE TABLE users (username TEXT, password TEXT)')
+    conn.execute("INSERT INTO users (username,password) VALUES (?,?)",("admin","admin") )
     # Zakończenie połączenia z bazą danych
     conn.close()
     return index()
 
-# defalt route
+# default route
 @app.route("/", methods=['GET','POST']) 
 def index(): 
     if 'user' in session:
@@ -51,6 +50,7 @@ def login():
     if request.method == 'POST':
         req_form = request.form.to_dict()
         response_form = request.form
+        print(response_form)
         # Stworzenie sesji dla klienta i dodanie pola user
         session['user']=response_form['login']
         # session['password']=response_form['password']
@@ -67,9 +67,6 @@ def logout():
         redirect(url_for('index'))
     return redirect(url_for('signin'))
 
-app.config['SESSION_TYPE'] = 'filesystem'
-sess.init_app(app)
-
 @app.route('/add', methods=['POST'])
 def add():
     author = request.form['author']
@@ -77,15 +74,17 @@ def add():
     # Dodanie użytkownika do bazy danych
     con = sqlite3.connect(DATABASE)
     cur = con.cursor()
-    cur.execute("INSERT INTO books (author,title) VALUES (?,?)",(author,title) )
+    cur.execute("INSERT INTO books (author,title) VALUES (?,?)",(author,title))
     con.commit()
     con.close()
-
     # return "Dodano użytkownika do bazy danych <br>" + index()
-
     return redirect(url_for('index'))
 
-# run app in debug mode
+# Uruchomienie aplikacji w trybie debug
+app.secret_key = 'super secret key'
+app.config['SESSION_TYPE'] = 'filesystem'
+sess.init_app(app)
+app.config.from_object(__name__)
 app.debug = True
 app.run()
 
