@@ -22,7 +22,6 @@ def create_db():
     conn.execute('CREATE TABLE books (author TEXT, title TEXT)')
     # Zakończenie połączenia z bazą danych
     conn.close()
-    
     return index()
 
 # defalt route
