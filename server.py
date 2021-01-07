@@ -11,30 +11,41 @@ sess = Session()
 # Ścieżka do pliku bazy danych w sqlite
 DATABASE = 'database.db'
 
-@app.route('/create_database', methods=['GET', 'POST'])
+@app.route('/create_database', methods=['GET'])
 def create_db():
     # Połączenie sie z bazą danych
     conn = sqlite3.connect(DATABASE)
     # Stworzenie tabeli w bazie danych za pomocą sqlite3
     conn.execute('CREATE TABLE books (author TEXT, title TEXT)')
-    conn.execute('CREATE TABLE users (username TEXT, password TEXT)')
-    conn.execute("INSERT INTO users (username,password) VALUES (?,?)",("admin","admin") )
+    conn.execute('CREATE TABLE users (username TEXT, password TEXT, admin TEXT)')
+    conn.execute("INSERT INTO users (username,password,admin) VALUES (?,?,?)",("admin","admin","yes"))
+    conn.execute("INSERT INTO users (username,password,admin) VALUES (?,?,?)",("monika","monika","no") )
+    conn.commit() # konieczne do wpisywania danych do tablicy
     # Zakończenie połączenia z bazą danych
     conn.close()
     return index()
 
 # default route
-@app.route("/", methods=['GET','POST']) 
+@app.route("/", methods=['GET']) # pobieranie książek czyli GET
 def index(): 
     if 'user' in session:
-        con = sqlite3.connect(DATABASE)
+        conn = sqlite3.connect(DATABASE)
         # retrieve data from table
-        cur = con.cursor()
+        cur = conn.cursor()
         cur.execute("select rowid, * from books")
         print(cur)
         books = cur.fetchall(); 
         print(books)
-        return render_template("main.html", session_info=session, books=books)
+
+        print("session user")
+        print(session["user"])
+        username = session["user"]
+        cur.execute("select admin from users where username = '%s'" %username)
+        selected_user = cur.fetchall(); 
+        print(selected_user)
+        print(selected_user[0][0])
+        admin_priv = selected_user[0][0]
+        return render_template("main.html", session_info=session, books=books, admin_priv=admin_priv)
     else:
         # the main view is blocked for not logged in users, redirect to sign-in page
         return redirect(url_for('signin'))
@@ -47,15 +58,34 @@ def signin():
 # endpoint after loggin in
 @app.route('/login', methods=['POST'])
 def login():
-    if request.method == 'POST':
-        req_form = request.form.to_dict()
-        response_form = request.form
-        print(response_form)
-        # Stworzenie sesji dla klienta i dodanie pola user
-        session['user']=response_form['login']
-        # session['password']=response_form['password']
-        return redirect(url_for('index'))
-        # return "Sesja została utworzona <br> <a href='/'> Dalej </a> "
+    req_form = request.form.to_dict()
+    response_form = request.form
+    # print(response_form)
+    # print(response_form['login'])
+    conn = sqlite3.connect(DATABASE)
+    # retrieve user from the database
+    cur = conn.cursor()
+    cur.execute("select * from users")
+    users = cur.fetchall(); 
+    print("users")
+    print(users)
+    print("row[0]")
+    for row in users:
+        print(row[0])
+        if response_form['login']==row[0] and response_form['password']==row[1]:
+            print("User is in the database")
+            # Stworzenie sesji dla klienta i dodanie pola user
+            session['user']=response_form['login']
+            # session['admin_priv']=row[2]
+            # # session['password']=response_form['password']
+            # print("uprawnienia")
+            # print(row[2])
+            # admin_priv = row[2]
+            return redirect(url_for('index'))
+            # return "Sesja została utworzona <br> <a href='/'> Dalej </a> "
+
+    # Niepoprawne dane lub użytownika nie ma w bazie - powrót na stronę logowania
+    return redirect(url_for('signin'))
 
 @app.route('/logout', methods=['GET'])
 def logout():
@@ -67,18 +97,70 @@ def logout():
         redirect(url_for('index'))
     return redirect(url_for('signin'))
 
+# adding books to database
 @app.route('/add', methods=['POST'])
 def add():
     author = request.form['author']
     title = request.form['title']
-    # Dodanie użytkownika do bazy danych
     con = sqlite3.connect(DATABASE)
     cur = con.cursor()
     cur.execute("INSERT INTO books (author,title) VALUES (?,?)",(author,title))
     con.commit()
     con.close()
-    # return "Dodano użytkownika do bazy danych <br>" + index()
     return redirect(url_for('index'))
+
+@app.route('/users', methods=['GET'])
+def users():
+    conn = sqlite3.connect(DATABASE)
+    # retrieve user from the database
+    cur = conn.cursor()
+    cur.execute("select rowid, username, password, admin from users")
+    users = cur.fetchall(); 
+    return render_template("users.html", session_info=session, users=users)
+
+# adding users to database
+@app.route('/addusers', methods=['POST'])
+def addusers():
+    print(request.form)
+    username = request.form['username']
+    password = request.form['password']
+    if "adminvalue" in request.form:
+        admin = "yes"
+    else:
+        admin = "no"
+    con = sqlite3.connect(DATABASE)
+    cur = con.cursor()
+    cur.execute("INSERT INTO users (username,password,admin) VALUES (?,?,?)",(username,password,admin))
+    con.commit()
+    con.close()
+    return redirect(url_for('users'))
+
+# Endpoint umożliwiający podanie parametru w postaci int'a
+@app.route('/users/<int:get_id>')
+def user_by_id(get_id):
+    conn = sqlite3.connect(DATABASE)
+    # retrieve user from the database
+    cur = conn.cursor()
+    cur.execute("select rowid, username, password, admin from users where rowid=%d" %get_id)
+    selected_user = cur.fetchall(); 
+    print(get_id)
+    return render_template("user.html", session_info=session, selected_user=selected_user)
+
+# Endpoint umożliwiający podanie parametru w postaci string'a
+@app.route('/users/<string:username>')
+def user_by_name(username):
+    print(username)
+    conn = sqlite3.connect(DATABASE)
+    # retrieve user from the database
+    cur = conn.cursor()
+    cur.execute("select rowid, username, password, admin from users where username = '%s'" %username)
+    # cur.execute("Select * from users where instr("username", "monika") > 1")
+    # cur.execute("select rowid, username, password, admin from users where username like %s" %"monika")
+    selected_user = cur.fetchall(); 
+    print(selected_user)
+    return render_template("user.html", session_info=session, selected_user=selected_user)
+    # return redirect(url_for('users'))
+
 
 # Uruchomienie aplikacji w trybie debug
 app.secret_key = 'super secret key'
