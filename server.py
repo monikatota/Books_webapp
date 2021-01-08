@@ -33,12 +33,7 @@ def index():
         # retrieve data from table
         cur = conn.cursor()
         cur.execute("select rowid, * from books")
-        print(cur)
         books = cur.fetchall(); 
-        print(books)
-
-        print("session user")
-        print(session["user"])
         username = session["user"]
         cur.execute("select admin from users where username = '%s'" %username)
         selected_user = cur.fetchall(); 
@@ -60,30 +55,17 @@ def signin():
 def login():
     req_form = request.form.to_dict()
     response_form = request.form
-    # print(response_form)
-    # print(response_form['login'])
     conn = sqlite3.connect(DATABASE)
     # retrieve user from the database
     cur = conn.cursor()
     cur.execute("select * from users")
     users = cur.fetchall(); 
-    print("users")
-    print(users)
-    print("row[0]")
     for row in users:
-        print(row[0])
         if response_form['login']==row[0] and response_form['password']==row[1]:
             print("User is in the database")
             # Stworzenie sesji dla klienta i dodanie pola user
             session['user']=response_form['login']
-            # session['admin_priv']=row[2]
-            # # session['password']=response_form['password']
-            # print("uprawnienia")
-            # print(row[2])
-            # admin_priv = row[2]
             return redirect(url_for('index'))
-            # return "Sesja została utworzona <br> <a href='/'> Dalej </a> "
-
     # Niepoprawne dane lub użytownika nie ma w bazie - powrót na stronę logowania
     return redirect(url_for('signin'))
 
@@ -143,7 +125,6 @@ def user_by_id(get_id):
     cur = conn.cursor()
     cur.execute("select rowid, username, password, admin from users where rowid=%d" %get_id)
     selected_user = cur.fetchall(); 
-    print(get_id)
     return render_template("user.html", session_info=session, selected_user=selected_user)
 
 # Endpoint umożliwiający podanie parametru w postaci string'a
@@ -154,13 +135,8 @@ def user_by_name(username):
     # retrieve user from the database
     cur = conn.cursor()
     cur.execute("select rowid, username, password, admin from users where username = '%s'" %username)
-    # cur.execute("Select * from users where instr("username", "monika") > 1")
-    # cur.execute("select rowid, username, password, admin from users where username like %s" %"monika")
     selected_user = cur.fetchall(); 
-    print(selected_user)
     return render_template("user.html", session_info=session, selected_user=selected_user)
-    # return redirect(url_for('users'))
-
 
 # Uruchomienie aplikacji w trybie debug
 app.secret_key = 'super secret key'
